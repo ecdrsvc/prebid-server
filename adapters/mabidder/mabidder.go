@@ -46,19 +46,30 @@ func Builder(bidderName openrtb_ext.BidderName, config config.Adapter, server co
 }
 
 func (a *adapter) MakeRequests(request *openrtb2.BidRequest, requestInfo *adapters.ExtraRequestInfo) ([]*adapters.RequestData, []error) {
-	requestJSON, err := json.Marshal(request)
-	if err != nil {
-		return nil, []error{err}
+	var requests []*adapters.RequestData
+	var errors []error
+
+	requestCopy := *request
+	for _, imp := range request.Imp {
+		//requestJSON, err := json.Marshal(request)
+		requestCopy.Imp = []openrtb2.Imp{imp}
+
+		requestJSON, err := json.Marshal(requestCopy)
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+
+		requestData := &adapters.RequestData{
+			Method: "POST",
+			Uri:    a.endpoint,
+			Body:   requestJSON,
+			ImpIDs: openrtb_ext.GetImpIDs(request.Imp),
+		}
+		requests = append(requests, requestData)
 	}
 
-	requestData := &adapters.RequestData{
-		Method: "POST",
-		Uri:    a.endpoint,
-		Body:   requestJSON,
-		ImpIDs: openrtb_ext.GetImpIDs(request.Imp),
-	}
-
-	return []*adapters.RequestData{requestData}, nil
+	return requests, errors
 }
 
 func (a *adapter) MakeBids(request *openrtb2.BidRequest, requestData *adapters.RequestData, responseData *adapters.ResponseData) (*adapters.BidderResponse, []error) {
